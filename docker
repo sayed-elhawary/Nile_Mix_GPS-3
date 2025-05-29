@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  mongo:
+    image: mongo:6.0
+    restart: always
+    volumes:
+      - mongo-data:/data/db
+
+  backend:
+    build: ./traffic-backend
+    ports:
+      - "5000:5000"
+    environment:
+      - MONGO_URI=mongodb://mongo:27017/trafficdb
+      - JWT_SECRET=secret1234
+      - PORT=5000
+    volumes:
+      - ./traffic-backend/uploads:/app/uploads
+    depends_on:
+      - mongo
+
+  frontend:
+    build: ./traffic-frontend
+    ports:
+      - "3000:80"
+    environment:
+      - VITE_API_URL=http://54.172.193.230/:5000/api
+    depends_on:
+      - backend
+
+volumes:
+  mongo-data:
+

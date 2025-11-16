@@ -7,17 +7,29 @@ const AddViolation = () => {
     code: '',
     name: '',
     job: '',
-    type: '',
+    type: '', // هيبقى من السيلكت
     amount: '',
-    details: ''  // حقل جديد لإضافة تفاصيل المخالفة
+    details: ''
   });
   const [image, setImage] = useState(null);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState(''); // رسالة نجاح جديدة
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [previewImage, setPreviewImage] = useState(null);
   const navigate = useNavigate();
-
   const role = localStorage.getItem('role');
+
+  // قائمة أنواع المخالفات الثابتة
+  const violationTypes = [
+    { value: 'فوري سرعة', label: 'فوري سرعة' },
+    { value: 'فوري حزام', label: 'فوري حزام' },
+    { value: 'فوري تليفون', label: 'فوري تليفون' },
+    { value: 'فوري أخرى', label: 'فوري أخرى' },
+    { value: 'حزام مضاعف', label: 'حزام مضاعف' },
+    { value: 'سرعة مضاعف', label: 'سرعة مضاعف' },
+    { value: 'أخرى مضاعف', label: 'أخرى مضاعف' }
+  ];
+
   if (role !== 'admin') {
     return (
       <div style={styles.unauthorizedContainer}>
@@ -28,10 +40,7 @@ const AddViolation = () => {
           </svg>
           <h3 style={styles.unauthorizedTitle}>غير مصرح لك بالدخول لهذه الصفحة</h3>
           <p style={styles.unauthorizedText}>يجب أن تكون مسؤولاً للنفاذ إلى هذه الوظيفة</p>
-          <button
-            style={styles.backButton}
-            onClick={() => navigate('/')}
-          >
+          <button style={styles.backButton} onClick={() => navigate('/')}>
             العودة للصفحة الرئيسية
           </button>
         </div>
@@ -40,7 +49,7 @@ const AddViolation = () => {
   }
 
   const handleChange = (e) => {
-    setFormData({...formData, [e.target.name]: e.target.value});
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const handleImageChange = (e) => {
@@ -58,6 +67,7 @@ const AddViolation = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setSuccess('');
     setIsSubmitting(true);
 
     try {
@@ -73,7 +83,25 @@ const AddViolation = () => {
         }
       });
 
-      navigate('/');
+      // تحديث سجل الأنشطة فورًا
+      localStorage.setItem('logsNeedRefresh', Date.now().toString());
+
+      // رسالة نجاح + إعادة تعيين النموذج
+      setSuccess('تم تسجيل المخالفة بنجاح! جاهز لتسجيل مخالفة أخرى');
+      setFormData({
+        code: '',
+        name: '',
+        job: '',
+        type: '',
+        amount: '',
+        details: ''
+      });
+      setImage(null);
+      setPreviewImage(null);
+
+      // إزالة رسالة النجاح بعد 4 ثواني
+      setTimeout(() => setSuccess(''), 4000);
+
     } catch (err) {
       setError(err.response?.data?.message || 'حدث خطأ أثناء تسجيل المخالفة');
     } finally {
@@ -81,7 +109,6 @@ const AddViolation = () => {
     }
   };
 
-  // أنماط التصميم
   const styles = {
     container: {
       maxWidth: '800px',
@@ -126,6 +153,16 @@ const AddViolation = () => {
       transition: 'all 0.3s ease',
       outline: 'none',
     },
+    select: {
+      padding: '12px 16px',
+      fontSize: '15px',
+      borderRadius: '8px',
+      border: '1px solid #e2e8f0',
+      backgroundColor: '#f8fafc',
+      color: '#1e293b',
+      outline: 'none',
+      cursor: 'pointer',
+    },
     fileInputContainer: {
       display: 'flex',
       flexDirection: 'column',
@@ -164,29 +201,41 @@ const AddViolation = () => {
       border: '1px solid #e2e8f0',
     },
     submitButton: {
-      backgroundColor: '#3b82f6',
+      backgroundColor: '#10b981',
       color: 'white',
       border: 'none',
-      padding: '14px 24px',
-      fontSize: '16px',
-      borderRadius: '8px',
+      padding: '16px 24px',
+      fontSize: '17px',
+      borderRadius: '12px',
       cursor: 'pointer',
-      fontWeight: '600',
+      fontWeight: '700',
       transition: 'all 0.3s ease',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: '8px',
-      boxShadow: '0 4px 6px rgba(59, 130, 246, 0.2)',
+      gap: '10px',
+      boxShadow: '0 6px 12px rgba(16, 185, 129, 0.3)',
+      marginTop: '10px',
+    },
+    success: {
+      color: '#10b981',
+      padding: '16px',
+      backgroundColor: '#ecfdf5',
+      borderRadius: '12px',
+      borderLeft: '5px solid #10b981',
+      fontSize: '16px',
+      fontWeight: '600',
+      textAlign: 'center',
+      marginBottom: '20px',
     },
     error: {
       color: '#ef4444',
-      padding: '12px',
+      padding: '16px',
       backgroundColor: '#fee2e2',
-      borderRadius: '8px',
-      borderLeft: '4px solid #ef4444',
-      fontSize: '14px',
-      marginTop: '16px',
+      borderRadius: '12px',
+      borderLeft: '5px solid #ef4444',
+      fontSize: '15px',
+      marginBottom: '20px',
     },
     unauthorizedContainer: {
       display: 'flex',
@@ -238,6 +287,9 @@ const AddViolation = () => {
     <div style={styles.container}>
       <h2 style={styles.title}>تسجيل مخالفة جديدة</h2>
 
+      {success && <div style={styles.success}>{success}</div>}
+      {error && <div style={styles.error}>{error}</div>}
+
       <form onSubmit={handleSubmit} style={styles.form}>
         <div style={styles.inputGroup}>
           <label style={styles.label}>الكود</label>
@@ -275,16 +327,23 @@ const AddViolation = () => {
           />
         </div>
 
+        {/* السيلكت الجديد لنوع المخالفة */}
         <div style={styles.inputGroup}>
           <label style={styles.label}>نوع المخالفة</label>
-          <input
+          <select
             name="type"
-            placeholder="أدخل نوع المخالفة"
-            onChange={handleChange}
             value={formData.type}
+            onChange={handleChange}
             required
-            style={styles.input}
-          />
+            style={styles.select}
+          >
+            <option value="">-- اختر نوع المخالفة --</option>
+            {violationTypes.map(option => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div style={styles.inputGroup}>
@@ -300,12 +359,11 @@ const AddViolation = () => {
           />
         </div>
 
-        {/* الحقل الجديد: تفاصيل المخالفة */}
         <div style={styles.inputGroup}>
-          <label style={styles.label}>تفاصيل المخالفة</label>
+          <label style={styles.label}>تفاصيل المخالفة (اختياري)</label>
           <textarea
             name="details"
-            placeholder="أدخل تفاصيل المخالفة"
+            placeholder="أدخل تفاصيل إضافية إن وجدت..."
             onChange={handleChange}
             value={formData.details}
             rows={4}
@@ -316,13 +374,7 @@ const AddViolation = () => {
         <div style={styles.fileInputContainer}>
           <label htmlFor="image" style={styles.fileInputLabel}>
             <span style={styles.fileInputText}>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                style={styles.fileInputIcon}
-              >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={styles.fileInputIcon}>
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 018 0v1h4v-1a4 4 0 018 0v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4 4m0 0l-4 4m4-4H9" />
               </svg>
@@ -337,28 +389,21 @@ const AddViolation = () => {
               style={{ display: 'none' }}
             />
           </label>
-          {previewImage && <img src={previewImage} alt="معاينة" style={styles.previewImage} />}
+          {previewImage && <img src={previewImage} alt="معاينة الصورة" style={styles.previewImage} />}
         </div>
-
-        {error && <p style={styles.error}>{error}</p>}
 
         <button type="submit" disabled={isSubmitting} style={styles.submitButton}>
           {isSubmitting ? (
             <>
               جارٍ التسجيل...
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                style={{ width: '20px', height: '20px', animation: 'spin 1s linear infinite' }}
-              >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                style={{ width: '22px', height: '22px', animation: 'spin 1s linear infinite' }}>
                 <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" opacity="0.25" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M4 12a8 8 0 018-8" />
               </svg>
             </>
           ) : (
-            'تسجيل المخالفة'
+            'تسجيل المخالفة وإضافة أخرى'
           )}
         </button>
       </form>
@@ -366,23 +411,21 @@ const AddViolation = () => {
       <style>
         {`
           @keyframes spin {
-            0% { transform: rotate(0deg);}
-            100% { transform: rotate(360deg);}
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
           }
-          input:focus, textarea:focus {
-            border-color: #3b82f6;
-            box-shadow: 0 0 8px rgba(59,130,246,0.5);
-          }
-          label:hover {
-            color: #3b82f6;
-          }
-          button:disabled {
-            background-color: #93c5fd;
-            cursor: not-allowed;
-            box-shadow: none;
+          input:focus, textarea:focus, select:focus {
+            border-color: #3b82f6 !important;
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.4);
           }
           button:not(:disabled):hover {
-            background-color: #2563eb;
+            background-color: #059669;
+            transform: translateY(-2px);
+          }
+          button:disabled {
+            background-color: #94a3b8;
+            cursor: not-allowed;
+            transform: none;
           }
         `}
       </style>
@@ -391,4 +434,3 @@ const AddViolation = () => {
 };
 
 export default AddViolation;
-

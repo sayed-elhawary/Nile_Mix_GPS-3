@@ -14,7 +14,8 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/violations', violationRoutes);
-
+const activityLogRoutes = require('./routes/activityLogs');
+app.use('/api/activity-logs', activityLogRoutes);
 const PORT = process.env.PORT || 5000;
 
 mongoose.connect(process.env.MONGO_URI)

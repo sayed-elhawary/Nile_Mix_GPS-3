@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
@@ -9,8 +9,22 @@ const ViolationsList = () => {
   const [selectedImage, setSelectedImage] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const navigate = useNavigate();
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
+  // تشيك بوكسات الأنواع
+  const [showInstantSpeed, setShowInstantSpeed] = useState(true);
+  const [showInstantSeatbelt, setShowInstantSeatbelt] = useState(true);
+  const [showInstantPhone, setShowInstantPhone] = useState(true);
+  const [showInstantOther, setShowInstantOther] = useState(true);
+  const [showDoubleSeatbelt, setShowDoubleSeatbelt] = useState(true);
+  const [showDoubleSpeed, setShowDoubleSpeed] = useState(true);
+  const [showDoublePhone, setShowDoublePhone] = useState(true);
+  const [showDoubleOther, setShowDoubleOther] = useState(true);
+
+  const [editingViolation, setEditingViolation] = useState(null);
+  const [companyPercentage, setCompanyPercentage] = useState('');
+  const navigate = useNavigate();
   const role = localStorage.getItem('role');
 
   useEffect(() => {
@@ -24,8 +38,13 @@ const ViolationsList = () => {
         const res = await axios.get(`${import.meta.env.VITE_API_URL}/violations`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        setViolations(res.data);
-        setFilteredViolations(res.data);
+        const dataWithDate = res.data.map(v => ({
+          ...v,
+          createdAt: v.createdAt || new Date().toISOString(),
+          companyPercentage: v.companyPercentage ?? 0
+        }));
+        setViolations(dataWithDate);
+        setFilteredViolations(dataWithDate);
       } catch (err) {
         console.error('خطأ في جلب المخالفات:', err);
         setError('حدث خطأ أثناء تحميل المخالفات، يرجى المحاولة لاحقاً');
@@ -37,419 +56,342 @@ const ViolationsList = () => {
   }, [navigate]);
 
   useEffect(() => {
-    const results = violations.filter(violation =>
-      violation.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      violation.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      violation.amount.toString().includes(searchTerm)
-    );
+    let results = violations;
+
+    // بحث بالاسم أو الكود أو المبلغ
+    if (searchTerm) {
+      results = results.filter(v =>
+        v.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        v.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        v.amount.toString().includes(searchTerm)
+      );
+    }
+
+    // فلتر التاريخ
+    if (startDate || endDate) {
+      results = results.filter(v => {
+        const vDate = new Date(v.createdAt);
+        vDate.setHours(0, 0, 0, 0);
+        if (startDate) {
+          const start = new Date(startDate);
+          start.setHours(0, 0, 0, 0);
+          if (vDate < start) return false;
+        }
+        if (endDate) {
+          const end = new Date(endDate);
+          end.setHours(23, 59, 59, 999);
+          if (vDate > end) return false;
+        }
+        return true;
+      });
+    }
+
+    // فلتر الأنواع
+    results = results.filter(v => {
+      if (v.type === 'فوري سرعة' && !showInstantSpeed) return false;
+      if (v.type === 'فوري حزام' && !showInstantSeatbelt) return false;
+      if (v.type === 'فوري تليفون' && !showInstantPhone) return false;
+      if (v.type === 'فوري أخرى' && !showInstantOther) return false;
+      if (v.type === 'حزام مضاعف' && !showDoubleSeatbelt) return false;
+      if (v.type === 'سرعة مضاعف' && !showDoubleSpeed) return false;
+      if (v.type === 'تليفون مضاعف' && !showDoublePhone) return false;
+      if (v.type === 'أخرى مضاعف' && !showDoubleOther) return false;
+      return true;
+    });
+
     setFilteredViolations(results);
-  }, [searchTerm, violations]);
+  }, [
+    violations, searchTerm, startDate, endDate,
+    showInstantSpeed, showInstantSeatbelt, showInstantPhone, showInstantOther,
+    showDoubleSeatbelt, showDoubleSpeed, showDoublePhone, showDoubleOther
+  ]);
 
-  const handleLogout = () => {
-    localStorage.clear();
-    navigate('/login');
-  };
+  const stats = useMemo(() => {
+    const totalOriginal = filteredViolations.reduce((sum, v) => sum + v.amount, 0);
+    const totalCompany = filteredViolations.reduce((sum, v) =>
+      sum + Math.round(v.amount * (v.companyPercentage || 0) / 100), 0
+    );
+    const totalEmployee = totalOriginal - totalCompany;
+    return { totalOriginal, totalCompany, totalEmployee };
+  }, [filteredViolations]);
 
-  const openImage = (imgUrl) => {
-    setSelectedImage(imgUrl);
-  };
-
-  const closeModal = () => {
-    setSelectedImage(null);
-  };
+  const openImage = (url) => setSelectedImage(url);
+  const closeModal = () => setSelectedImage(null);
 
   const handleDelete = async (id) => {
-    if (!window.confirm('هل أنت متأكد أنك تريد حذف هذه المخالفة؟')) return;
+    if (!confirm('هل أنت متأكد من حذف المخالفة؟')) return;
     try {
       const token = localStorage.getItem('token');
       await axios.delete(`${import.meta.env.VITE_API_URL}/violations/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setViolations((prev) => prev.filter((v) => v._id !== id));
-      setFilteredViolations((prev) => prev.filter((v) => v._id !== id));
+      setViolations(prev => prev.filter(v => v._id !== id));
+      setFilteredViolations(prev => prev.filter(v => v._id !== id));
     } catch (err) {
-      alert('حدث خطأ أثناء حذف المخالفة.');
-      console.error(err);
+      alert('فشل حذف المخالفة');
     }
   };
 
-  const handleSearchChange = (e) => {
-    setSearchTerm(e.target.value);
+  const openEditModal = (v) => {
+    setEditingViolation(v);
+    setCompanyPercentage(v.companyPercentage || 0);
   };
 
-  // أنماط جديدة بتصميم عصري
-  const styles = {
-    container: {
-      maxWidth: '1200px',
-      margin: '40px auto',
-      padding: '30px',
-      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
-      backgroundColor: '#ffffff',
-      borderRadius: '16px',
-      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.08)',
-      border: '1px solid rgba(0, 0, 0, 0.04)',
-    },
-    header: {
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: '32px',
-      flexWrap: 'wrap',
-      gap: '20px',
-    },
-    titleContainer: {
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '16px',
-    },
-    title: {
-      margin: 0,
-      color: '#1a1a1a',
-      fontSize: '28px',
-      fontWeight: '700',
-      background: 'linear-gradient(90deg, #3b82f6, #8b5cf6)',
-      WebkitBackgroundClip: 'text',
-      WebkitTextFillColor: 'transparent',
-      display: 'inline-block',
-    },
-    searchContainer: {
-      position: 'relative',
-      width: '100%',
-      maxWidth: '400px',
-    },
-    searchInput: {
-      width: '100%',
-      padding: '12px 16px 12px 44px',
-      fontSize: '15px',
-      borderRadius: '8px',
-      border: '1px solid #e2e8f0',
-      backgroundColor: '#f8fafc',
-      transition: 'all 0.3s ease',
-      outline: 'none',
-      boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
-      '&:focus': {
-        borderColor: '#3b82f6',
-        boxShadow: '0 0 0 3px rgba(59, 130, 246, 0.2)',
-      },
-    },
-    searchIcon: {
-      position: 'absolute',
-      left: '14px',
-      top: '50%',
-      transform: 'translateY(-50%)',
-      color: '#64748b',
-    },
-    headerActions: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '16px',
-    },
-    logoutButton: {
-      backgroundColor: '#3b82f6',
-      border: 'none',
-      color: 'white',
-      padding: '12px 24px',
-      fontSize: '15px',
-      borderRadius: '8px',
-      cursor: 'pointer',
-      transition: 'all 0.3s ease',
-      fontWeight: '600',
-      boxShadow: '0 4px 6px rgba(59, 130, 246, 0.2)',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '8px',
-      '&:hover': {
-        backgroundColor: '#2563eb',
-      },
-    },
-    error: {
-      color: '#ef4444',
-      marginBottom: '15px',
-      fontWeight: '600',
-      textAlign: 'center',
-      padding: '12px',
-      backgroundColor: '#fee2e2',
-      borderRadius: '8px',
-      borderLeft: '4px solid #ef4444',
-    },
-    noData: {
-      textAlign: 'center',
-      color: '#64748b',
-      fontSize: '18px',
-      marginTop: '40px',
-      padding: '20px',
-      backgroundColor: '#f8fafc',
-      borderRadius: '12px',
-    },
-    tableWrapper: {
-      overflowX: 'auto',
-      borderRadius: '12px',
-      border: '1px solid #e2e8f0',
-      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
-      marginTop: '24px',
-    },
-    table: {
-      width: '100%',
-      borderCollapse: 'separate',
-      borderSpacing: 0,
-      minWidth: '800px',
-    },
-    tableHeader: {
-      backgroundColor: '#f8fafc',
-      position: 'sticky',
-      top: 0,
-      zIndex: 10,
-    },
-    tableHeaderCell: {
-      padding: '16px',
-      textAlign: 'right',
-      fontWeight: '600',
-      color: '#334155',
-      borderBottom: '1px solid #e2e8f0',
-      fontSize: '14px',
-    },
-    row: {
-      transition: 'all 0.2s ease',
-      textAlign: 'right',
-      fontSize: '14px',
-      '&:hover': {
-        backgroundColor: '#f8fafc',
-      },
-    },
-    tableCell: {
-      padding: '16px',
-      borderBottom: '1px solid #e2e8f0',
-      color: '#475569',
-    },
-    image: {
-      width: '80px',
-      height: '60px',
-      objectFit: 'cover',
-      borderRadius: '8px',
-      cursor: 'pointer',
-      transition: 'all 0.3s ease',
-      boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)',
-      '&:hover': {
-        transform: 'scale(1.05)',
-        boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
-      },
-    },
-    deleteButton: {
-      backgroundColor: '#ef4444',
-      color: 'white',
-      border: 'none',
-      padding: '8px 16px',
-      borderRadius: '6px',
-      cursor: 'pointer',
-      fontWeight: '500',
-      fontSize: '14px',
-      transition: 'all 0.3s ease',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '6px',
-      boxShadow: '0 2px 4px rgba(239, 68, 68, 0.2)',
-      '&:hover': {
-        backgroundColor: '#dc2626',
-        transform: 'translateY(-1px)',
-        boxShadow: '0 4px 8px rgba(239, 68, 68, 0.3)',
-      },
-    },
-    modalOverlay: {
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(0,0,0,0.85)',
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      zIndex: 10000,
-      padding: '20px',
-      backdropFilter: 'blur(8px)',
-    },
-    modalContent: {
-      position: 'relative',
-      maxWidth: '90%',
-      maxHeight: '90%',
-      backgroundColor: '#ffffff',
-      borderRadius: '16px',
-      padding: '20px',
-      boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
-      border: '1px solid rgba(255,255,255,0.1)',
-    },
-    modalImage: {
-      maxWidth: '100%',
-      maxHeight: '80vh',
-      borderRadius: '12px',
-      display: 'block',
-      margin: 'auto',
-      boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
-    },
-    closeButton: {
-      position: 'absolute',
-      top: '12px',
-      right: '16px',
-      background: 'transparent',
-      border: 'none',
-      fontSize: '28px',
-      color: '#64748b',
-      cursor: 'pointer',
-      fontWeight: 'bold',
-      lineHeight: 1,
-      transition: 'all 0.3s ease',
-      '&:hover': {
-        color: '#1e293b',
-        transform: 'scale(1.1)',
-      },
-    },
-    loadingContainer: {
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      height: '200px',
-    },
-    loadingSpinner: {
-      border: '4px solid rgba(59, 130, 246, 0.1)',
-      borderTop: '4px solid #3b82f6',
-      borderRadius: '50%',
-      width: '40px',
-      height: '40px',
-      animation: 'spin 1s linear infinite',
-    },
+  const saveCompanyPercentage = async () => {
+    const percentage = Number(companyPercentage);
+    if (isNaN(percentage) || percentage < 0 || percentage > 100) {
+      alert('النسبة يجب أن تكون بين 0 و 100');
+      return;
+    }
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.patch(
+        `${import.meta.env.VITE_API_URL}/violations/${editingViolation._id}/percentage`,
+        { companyPercentage: percentage },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setViolations(prev => prev.map(v => v._id === editingViolation._id ? res.data : v));
+      setFilteredViolations(prev => prev.map(v => v._id === editingViolation._id ? res.data : v));
+      setEditingViolation(null);
+    } catch (err) {
+      alert('فشل حفظ النسبة');
+    }
   };
 
   return (
     <div style={styles.container}>
-      <header style={styles.header}>
-        <div style={styles.titleContainer}>
+      <div style={styles.innerContainer}>
+        <header style={styles.header}>
           <h2 style={styles.title}>قائمة المخالفات</h2>
-          <div style={styles.searchContainer}>
-            <svg style={styles.searchIcon} width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M11 19C15.4183 19 19 15.4183 19 11C19 6.58172 15.4183 3 11 3C6.58172 3 3 6.58172 3 11C3 15.4183 6.58172 19 11 19Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M21 21L16.65 16.65" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            <input
-              type="text"
-              placeholder="ابحث بالاسم، الكود أو المبلغ..."
-              value={searchTerm}
-              onChange={handleSearchChange}
-              style={styles.searchInput}
-            />
+
+          {/* حقل البحث + التاريخ + التشيك بوكسات - دايمًا ظاهرين */}
+          <div style={styles.searchBar}>
+            <div style={styles.searchInputWrapper}>
+              <svg style={styles.searchIcon} viewBox="0 0 24 24" width="20" height="20">
+                <path d="M11 19C15.4183 19 19 15.4183 19 11C19 6.58172 15.4183 3 11 3C6.58172 3 3 6.58172 3 11C3 15.4183 6.58172 19 11 19Z" stroke="currentColor" strokeWidth="2" fill="none"/>
+                <path d="M21 21L16.65 16.65" stroke="currentColor" strokeWidth="2"/>
+              </svg>
+              <input
+                type="text"
+                placeholder="ابحث بالكود أو الاسم..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                style={styles.searchInput}
+              />
+            </div>
+
+            <div style={styles.dateFilters}>
+              <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} style={styles.dateInput} />
+              <span style={{ margin: '0 8px', color: '#aaa' }}>إلى</span>
+              <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} style={styles.dateInput} />
+            </div>
           </div>
-        </div>
-        <div style={styles.headerActions}>
-          <button
-            onClick={handleLogout}
-            style={styles.logoutButton}
-            aria-label="تسجيل الخروج"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M9 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M16 17L21 12L16 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M21 12H9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            تسجيل الخروج
-          </button>
-        </div>
-      </header>
 
-      {error && <p style={styles.error}>{error}</p>}
-
-      {isLoading ? (
-        <div style={styles.loadingContainer}>
-          <div style={styles.loadingSpinner}></div>
-        </div>
-      ) : filteredViolations.length === 0 ? (
-        <p style={styles.noData}>
-          {searchTerm ? 'لا توجد نتائج مطابقة للبحث' : 'لا توجد مخالفات مسجلة حالياً'}
-        </p>
-      ) : (
-        <div style={styles.tableWrapper}>
-          <table style={styles.table}>
-            <thead>
-              <tr style={styles.tableHeader}>
-                <th style={styles.tableHeaderCell}>الكود</th>
-                <th style={styles.tableHeaderCell}>الاسم</th>
-                <th style={styles.tableHeaderCell}>الوظيفة</th>
-                <th style={styles.tableHeaderCell}>نوع المخالفة</th>
-                <th style={styles.tableHeaderCell}>المبلغ</th>
-                <th style={styles.tableHeaderCell}>الصورة</th>
-                {role === 'admin' && <th style={styles.tableHeaderCell}>إجراءات</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {filteredViolations.map((v) => (
-                <tr key={v._id} style={{...styles.row, '&:hover': {backgroundColor: '#f8fafc'}}}>
-                  <td style={styles.tableCell}>{v.code}</td>
-                  <td style={styles.tableCell}>{v.name}</td>
-                  <td style={styles.tableCell}>{v.job}</td>
-                  <td style={styles.tableCell}>{v.type}</td>
-                  <td style={styles.tableCell}>{v.amount} ج.م</td>
-                  <td style={styles.tableCell}>
-                    {v.image ? (
-                      <img
-                        src={`${import.meta.env.VITE_API_URL.replace('/api', '')}/${v.image}`}
-                        alt="مخالفة"
-                        style={styles.image}
-                        onClick={() =>
-                          openImage(
-                            `${import.meta.env.VITE_API_URL.replace('/api', '')}/${v.image}`
-                          )
-                        }
-                        title="اضغط للتكبير"
-                      />
-                    ) : (
-                      <span style={{color: '#94a3b8'}}>لا توجد صورة</span>
-                    )}
-                  </td>
-                  {role === 'admin' && (
-                    <td style={styles.tableCell}>
-                      <button
-                        onClick={() => handleDelete(v._id)}
-                        style={styles.deleteButton}
-                        aria-label={`حذف مخالفة رقم ${v.code}`}
-                      >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M3 6H5H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                          <path d="M8 6V4C8 3.46957 8.21071 3.96086 8.58579 3.58579C8.96086 3.21071 9.46957 3 10 3H14C14.5304 3 15.0391 3.21071 15.4142 3.58579C15.7893 3.96086 16 3.46957 16 4V6M19 6V20C19 20.5304 18.7893 21.0391 18.4142 21.4142C18.0391 21.7893 17.5304 22 17 22H7C6.46957 22 5.96086 21.7893 5.58579 21.4142C5.21071 21.0391 5 20.5304 5 20V6H19Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                          <path d="M10 11V17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                          <path d="M14 11V17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                        </svg>
-                        إلغاء المخالفة
-                      </button>
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {selectedImage && (
-        <div style={styles.modalOverlay} onClick={closeModal} role="dialog" aria-modal="true">
-          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-            <button
-              style={styles.closeButton}
-              onClick={closeModal}
-              aria-label="إغلاق تكبير الصورة"
-            >
-              ×
-            </button>
-            <img src={selectedImage} alt="تكبير المخالفة" style={styles.modalImage} />
+          {/* تشيك بوكسات الأنواع */}
+          <div style={styles.typeFilters}>
+            {[
+              { s: showInstantSpeed, set: setShowInstantSpeed, label: 'فوري سرعة', c: '#4ADE80' },
+              { s: showInstantSeatbelt, set: setShowInstantSeatbelt, label: 'فوري حزام', c: '#FBBF24' },
+              { s: showInstantPhone, set: setShowInstantPhone, label: 'فوري تليفون', c: '#60A5FA' },
+              { s: showInstantOther, set: setShowInstantOther, label: 'فوري أخرى', c: '#A78BFA' },
+              { s: showDoubleSeatbelt, set: setShowDoubleSeatbelt, label: 'حزام مضاعف', c: '#F87171' },
+              { s: showDoubleSpeed, set: setShowDoubleSpeed, label: 'سرعة مضاعف', c: '#F87171' },
+              { s: showDoublePhone, set: setShowDoublePhone, label: 'تليفون مضاعف', c: '#F87171' },
+              { s: showDoubleOther, set: setShowDoubleOther, label: 'أخرى مضاعف', c: '#F87171' },
+            ].map(({ s, set, label, c }) => (
+              <label key={label} style={{ ...styles.checkboxLabel, borderColor: s ? c : '#555' }}>
+                <input type="checkbox" checked={s} onChange={e => set(e.target.checked)} style={{ display: 'none' }} />
+                <span style={{ ...styles.checkboxText, color: s ? c : '#888' }}>{label}</span>
+              </label>
+            ))}
           </div>
-        </div>
-      )}
+        </header>
 
-      <style>{`
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
+        {error && <p style={styles.error}>{error}</p>}
+
+        {isLoading ? (
+          <div style={styles.loading}>جاري التحميل...</div>
+        ) : filteredViolations.length === 0 ? (
+          <p style={styles.noData}>لا توجد مخالفات مطابقة للبحث</p>
+        ) : (
+          <>
+            {/* Cards للموبايل + جدول للديسكتوب */}
+            <div className="violations-responsive">
+              {/* Mobile Cards */}
+              <div className="mobile-view">
+                {filteredViolations.map(v => {
+                  const employeeAmount = Math.round(v.amount * (100 - (v.companyPercentage || 0)) / 100);
+                  return (
+                    <div key={v._id} style={styles.mobileCard}>
+                      <div style={styles.mobileCardHeader}>
+                        <strong>{v.code} - {v.name}</strong>
+                        <span style={styles.mobileJob}>{v.job}</span>
+                      </div>
+                      <div style={styles.mobileCardBody}>
+                        <p><strong>النوع:</strong> <span style={{ color: '#60A5FA' }}>{v.type}</span></p>
+                        <p><strong>المبلغ:</strong> {v.amount.toLocaleString('ar-EG')} ج.م</p>
+                        <p><strong>نسبة الشركة:</strong> {v.companyPercentage}%</p>
+                        <p style={{ color: '#4ADE80', fontWeight: 'bold' }}>
+                          <strong>يخصم:</strong> {employeeAmount.toLocaleString('ar-EG')} ج.م
+                        </p>
+                        <p><strong>التاريخ:</strong> {new Date(v.createdAt).toLocaleDateString('ar-EG')}</p>
+                        {v.image && (
+                          <img
+                            src={`${import.meta.env.VITE_API_URL.replace('/api', '')}/${v.image}`}
+                            alt="مخالفة"
+                            style={styles.mobileImage}
+                            onClick={() => openImage(`${import.meta.env.VITE_API_URL.replace('/api', '')}/${v.image}`)}
+                          />
+                        )}
+                        {role === 'admin' && (
+                          <div style={styles.mobileActions}>
+                            <button onClick={() => openEditModal(v)} style={styles.mobileEditBtn}>تعديل النسبة</button>
+                            <button onClick={() => handleDelete(v._id)} style={styles.mobileDeleteBtn}>حذف</button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Desktop Table */}
+              <table className="desktop-table" style={styles.desktopTable}>
+                <thead>
+                  <tr>
+                    <th>الكود</th>
+                    <th>الاسم</th>
+                    <th>الوظيفة</th>
+                    <th>النوع</th>
+                    <th>المبلغ</th>
+                    <th>نسبة الشركة</th>
+                    <th>يخصم</th>
+                    <th>التاريخ</th>
+                    <th>الصورة</th>
+                    {role === 'admin' && <th>إجراءات</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredViolations.map(v => {
+                    const employeeAmount = Math.round(v.amount * (100 - (v.companyPercentage || 0)) / 100);
+                    return (
+                      <tr key={v._id}>
+                        <td>{v.code}</td>
+                        <td>{v.name}</td>
+                        <td>{v.job}</td>
+                        <td>{v.type}</td>
+                        <td>{v.amount} ج.م</td>
+                        <td>{v.companyPercentage > 0 ? `${v.companyPercentage}%` : <span style={{color:'#F23F43'}}>0%</span>}</td>
+                        <td style={{color:'#4ADE80',fontWeight:'bold'}}>{employeeAmount.toLocaleString('ar-EG')} ج.م</td>
+                        <td>{new Date(v.createdAt).toLocaleDateString('ar-EG')}</td>
+                        <td>
+                          {v.image ? (
+                            <img src={`${import.meta.env.VITE_API_URL.replace('/api', '')}/${v.image}`} alt="صورة" style={styles.tableImage} onClick={() => openImage(`${import.meta.env.VITE_API_URL.replace('/api', '')}/${v.image}`)} />
+                          ) : 'لا توجد'}
+                        </td>
+                        {role === 'admin' && (
+                          <td>
+                            <button onClick={() => openEditModal(v)} style={styles.editBtn}>تعديل</button>
+                            <button onClick={() => handleDelete(v._id)} style={styles.deleteBtn}>حذف</button>
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* الإحصائيات */}
+            <div style={styles.stats}>
+              <h3>الإحصائيات</h3>
+              <div style={styles.statsGrid}>
+                <div style={styles.statBox}><span>إجمالي المخالفات</span><strong style={{color:'#00D4FF'}}>{stats.totalOriginal.toLocaleString('ar-EG')} ج.م</strong></div>
+                <div style={styles.statBox}><span>تتحمله الشركة</span><strong style={{color:'#4ADE80'}}>{stats.totalCompany.toLocaleString('ar-EG')} ج.م</strong></div>
+                <div style={styles.statBox}><span>يخصم من الموظفين</span><strong style={{color:'#F23F43'}}>{stats.totalEmployee.toLocaleString('ar-EG')} ج.م</strong></div>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* مودال تعديل النسبة */}
+        {editingViolation && (
+          <div style={styles.modal} onClick={() => setEditingViolation(null)}>
+            <div style={styles.modalContent} onClick={e => e.stopPropagation()}>
+              <h3>تعديل نسبة الشركة</h3>
+              <p>{editingViolation.code} - {editingViolation.name}</p>
+              <input type="number" min="0" max="100" value={companyPercentage} onChange={e => setCompanyPercentage(e.target.value)} style={styles.modalInput} />
+              <div style={styles.modalBtns}>
+                <button onClick={saveCompanyPercentage} style={styles.saveBtn}>حفظ</button>
+                <button onClick={() => setEditingViolation(null)} style={styles.cancelBtn}>إلغاء</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* مودال الصورة */}
+        {selectedImage && (
+          <div style={styles.modal} onClick={closeModal}>
+            <div style={styles.imageModal} onClick={e => e.stopPropagation()}>
+              <button style={styles.closeImage} onClick={closeModal}>✕</button>
+              <img src={selectedImage} alt="مخالفة" style={{ maxWidth: '100%', maxHeight: '90vh', borderRadius: '12px' }} />
+            </div>
+          </div>
+        )}
+      </div>
+
+      <style jsx>{`
+        @media (max-width: 768px) {
+          .desktop-table { display: none; }
+        }
+        @media (min-width: 769px) {
+          .mobile-view { display: none; }
         }
       `}</style>
     </div>
   );
+};
+
+const styles = {
+  container: { minHeight: '100vh', backgroundColor: '#18191A', color: '#E4E6EB', padding: '16px', fontFamily: 'Tajawal, sans-serif', direction: 'rtl' },
+  innerContainer: { maxWidth: '1400px', margin: '0 auto', backgroundColor: '#242526', borderRadius: '16px', overflow: 'hidden' },
+  header: { padding: '20px', backgroundColor: '#242526', borderBottom: '1px solid #333' },
+  title: { margin: '0 0 16px', fontSize: '28px', fontWeight: '800', color: '#fff' },
+  searchBar: { display: 'flex', flexWrap: 'wrap', gap: '12px', marginBottom: '16px', alignItems: 'center' },
+  searchInputWrapper: { position: 'relative', flex: '1', minWidth: '250px' },
+  searchInput: { width: '100%', padding: '14px 45px 14px 16px', borderRadius: '12px', border: '1px solid #444', backgroundColor: '#333', color: '#fff', fontSize: '16px' },
+  searchIcon: { position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', color: '#999' },
+  dateFilters: { display: 'flex', alignItems: 'center', gap: '8px' },
+  dateInput: { padding: '12px', borderRadius: '10px', border: '1px solid #444', backgroundColor: '#333', color: '#fff' },
+  typeFilters: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px', marginTop: '10px' },
+  checkboxLabel: { display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '10px', borderRadius: '10px', border: '2px solid', cursor: 'pointer', transition: 'all 0.2s' },
+  checkboxText: { fontWeight: '600', fontSize: '14px' },
+  loading: { textAlign: 'center', padding: '60px', fontSize: '18px', color: '#999' },
+  noData: { textAlign: 'center', padding: '80px', fontSize: '20px', color: '#999' },
+  mobileCard: { backgroundColor: '#333', borderRadius: '16px', margin: '16px', padding: '20px', border: '1px solid #444' },
+  mobileCardHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', fontSize: '18px' },
+  mobileJob: { fontSize: '14px', color: '#aaa' },
+  mobileCardBody: { lineHeight: '1.8' },
+  mobileImage: { width: '100%', borderRadius: '12px', marginTop: '12px', cursor: 'pointer' },
+  mobileActions: { display: 'flex', gap: '10px', marginTop: '16px' },
+  mobileEditBtn: { backgroundColor: '#0866FF', color: 'white', padding: '10px 16px', borderRadius: '10px', fontSize: '14px' },
+  mobileDeleteBtn: { backgroundColor: '#F23F43', color: 'white', padding: '10px 16px', borderRadius: '10px', fontSize: '14px' },
+  desktopTable: { width: '100%', borderCollapse: 'collapse', marginTop: '20px' },
+  tableImage: { width: '70px', height: '50px', objectFit: 'cover', borderRadius: '8px', cursor: 'pointer' },
+  editBtn: { backgroundColor: '#0866FF', color: 'white', padding: '6px 12px', borderRadius: '6px', marginLeft: '6px' },
+  deleteBtn: { backgroundColor: '#F23F43', color: 'white', padding: '6px 12px', borderRadius: '6px' },
+  stats: { margin: '32px 20px', backgroundColor: '#1e1f20', padding: '20px', borderRadius: '16px' },
+  statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginTop: '16px' },
+  statBox: { backgroundColor: '#333', padding: '20px', borderRadius: '12px', textAlign: 'center' },
+  modal: { position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.95)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 10000 },
+  modalContent: { backgroundColor: '#242526', padding: '32px', borderRadius: '20px', width: '90%', maxWidth: '400px', textAlign: 'center' },
+  modalInput: { width: '100%', padding: '16px', margin: '16px 0', backgroundColor: '#333', border: '1px solid #444', borderRadius: '12px', color: '#fff', fontSize: '18px' },
+  modalBtns: { display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '20px' },
+  saveBtn: { backgroundColor: '#0866FF', color: 'white', padding: '12px 32px', borderRadius: '12px', fontWeight: '700' },
+  cancelBtn: { backgroundColor: '#444', color: '#fff', padding: '12px 32px', borderRadius: '12px' },
+  imageModal: { position: 'relative', maxWidth: '95%', maxHeight: '95%' },
+  closeImage: { position: 'absolute', top: '-50px', right: '0', background: 'none', border: 'none', color: '#fff', fontSize: '40px', cursor: 'pointer' },
+  error: { backgroundColor: '#4F2122', color: '#F23F43', padding: '16px', borderRadius: '12px', textAlign: 'center', margin: '20px' },
 };
 
 export default ViolationsList;

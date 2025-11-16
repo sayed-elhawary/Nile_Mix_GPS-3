@@ -22,24 +22,11 @@ services:
 
   frontend:
     build: ./traffic-frontend
-    expose:
-      - "3000"
-    environment:
-      - VITE_API_URL=https://nilemix.duckdns.org/api
-    depends_on:
-      - backend
-
-  nginx:
-    image: nginx:latest
     ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
-      - /etc/letsencrypt:/etc/letsencrypt:ro          # ربط المجلد الحقيقي للشهادات
-      - ./certbot/www:/var/www/certbot                 # مجلد ويبرووت للـ certbot لو محتاج
+      - "3000:80"
+    environment:
+      - VITE_API_URL=http://13.233.184.129/:5000/api
     depends_on:
-      - frontend
       - backend
 
 volumes:

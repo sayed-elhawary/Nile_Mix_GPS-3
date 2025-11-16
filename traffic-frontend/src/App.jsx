@@ -4,6 +4,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import ViolationsList from './pages/ViolationsList';
 import AddViolation from './pages/AddViolation';
+import ActivityLogs from './pages/ActivityLogs'; // تمت الإضافة
 import Navbar from './components/Navbar';
 
 // مكون لحماية المسارات اللي تحتاج تسجيل دخول
@@ -38,12 +39,20 @@ const App = () => {
             </PrivateRoute>
           }
         />
-
         <Route
           path="/add"
           element={
             <AdminRoute>
               <AddViolation />
+            </AdminRoute>
+          }
+        />
+        {/* مسار جديد: سجل الأنشطة (للأدمن فقط) */}
+        <Route
+          path="/logs"
+          element={
+            <AdminRoute>
+              <ActivityLogs />
             </AdminRoute>
           }
         />
@@ -56,4 +65,3 @@ const App = () => {
 };
 
 export default App;
-

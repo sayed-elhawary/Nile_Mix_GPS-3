@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import { Search, Calendar, X, Edit2, Trash2, Image as ImageIcon, CheckCircle2, AlertCircle } from 'lucide-react';
 
 const ViolationsList = () => {
   const [violations, setViolations] = useState([]);
@@ -12,7 +13,7 @@ const ViolationsList = () => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
-  // تشيك بوكسات الأنواع
+  // فلاتر الأنواع
   const [showInstantSpeed, setShowInstantSpeed] = useState(true);
   const [showInstantSeatbelt, setShowInstantSeatbelt] = useState(true);
   const [showInstantPhone, setShowInstantPhone] = useState(true);
@@ -24,6 +25,7 @@ const ViolationsList = () => {
 
   const [editingViolation, setEditingViolation] = useState(null);
   const [companyPercentage, setCompanyPercentage] = useState('');
+
   const navigate = useNavigate();
   const role = localStorage.getItem('role');
 
@@ -46,7 +48,6 @@ const ViolationsList = () => {
         setViolations(dataWithDate);
         setFilteredViolations(dataWithDate);
       } catch (err) {
-        console.error('خطأ في جلب المخالفات:', err);
         setError('حدث خطأ أثناء تحميل المخالفات، يرجى المحاولة لاحقاً');
       } finally {
         setIsLoading(false);
@@ -58,7 +59,6 @@ const ViolationsList = () => {
   useEffect(() => {
     let results = violations;
 
-    // بحث بالاسم أو الكود أو المبلغ
     if (searchTerm) {
       results = results.filter(v =>
         v.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -67,7 +67,6 @@ const ViolationsList = () => {
       );
     }
 
-    // فلتر التاريخ
     if (startDate || endDate) {
       results = results.filter(v => {
         const vDate = new Date(v.createdAt);
@@ -86,7 +85,6 @@ const ViolationsList = () => {
       });
     }
 
-    // فلتر الأنواع
     results = results.filter(v => {
       if (v.type === 'فوري سرعة' && !showInstantSpeed) return false;
       if (v.type === 'فوري حزام' && !showInstantSeatbelt) return false;
@@ -119,7 +117,7 @@ const ViolationsList = () => {
   const closeModal = () => setSelectedImage(null);
 
   const handleDelete = async (id) => {
-    if (!confirm('هل أنت متأكد من حذف المخالفة؟')) return;
+    if (!window.confirm('هل أنت متأكد من حذف المخالفة؟')) return;
     try {
       const token = localStorage.getItem('token');
       await axios.delete(`${import.meta.env.VITE_API_URL}/violations/${id}`, {
@@ -158,240 +156,256 @@ const ViolationsList = () => {
     }
   };
 
+  const typeFilters = [
+    { state: showInstantSpeed, set: setShowInstantSpeed, label: 'فوري سرعة', color: 'emerald-400' },
+    { state: showInstantSeatbelt, set: setShowInstantSeatbelt, label: 'فوري حزام', color: 'yellow-400' },
+    { state: showInstantPhone, set: setShowInstantPhone, label: 'فوري تليفون', color: 'blue-400' },
+    { state: showInstantOther, set: setShowInstantOther, label: 'فوري أخرى', color: 'purple-400' },
+    { state: showDoubleSeatbelt, set: setShowDoubleSeatbelt, label: 'حزام مضاعف', color: 'red-500' },
+    { state: showDoubleSpeed, set: setShowDoubleSpeed, label: 'سرعة مضاعف', color: 'red-500' },
+    { state: showDoublePhone, set: setShowDoublePhone, label: 'تليفون مضاعف', color: 'red-500' },
+    { state: showDoubleOther, set: setShowDoubleOther, label: 'أخرى مضاعف', color: 'red-500' },
+  ];
+
   return (
-    <div style={styles.container}>
-      <div style={styles.innerContainer}>
-        <header style={styles.header}>
-          <h2 style={styles.title}>قائمة المخالفات</h2>
+    <div className="min-h-screen bg-gray-900 py-8 px-4" dir="rtl">
+      <div className="max-w-7xl mx-auto">
+        <div className="bg-gray-800 rounded-2xl shadow-2xl border border-gray-700 overflow-hidden">
+          <div className="p-6 border-b border-gray-700">
+            <h2 className="text-3xl font-bold text-white mb-6 text-center bg-gradient-to-r from-emerald-400 to-blue-500 bg-clip-text text-transparent">
+              قائمة المخالفات المرورية
+            </h2>
 
-          {/* حقل البحث + التاريخ + التشيك بوكسات - دايمًا ظاهرين */}
-          <div style={styles.searchBar}>
-            <div style={styles.searchInputWrapper}>
-              <svg style={styles.searchIcon} viewBox="0 0 24 24" width="20" height="20">
-                <path d="M11 19C15.4183 19 19 15.4183 19 11C19 6.58172 15.4183 3 11 3C6.58172 3 3 6.58172 3 11C3 15.4183 6.58172 19 11 19Z" stroke="currentColor" strokeWidth="2" fill="none"/>
-                <path d="M21 21L16.65 16.65" stroke="currentColor" strokeWidth="2"/>
-              </svg>
-              <input
-                type="text"
-                placeholder="ابحث بالكود أو الاسم..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                style={styles.searchInput}
-              />
-            </div>
+            {/* شريط البحث والفلاتر */}
+            <div className="space-y-5">
+              {/* البحث + التواريخ */}
+              <div className="flex flex-col md:flex-row gap-4">
+                <div className="flex-1 relative">
+                  <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  <input
+                    type="text"
+                    placeholder="ابحث بالكود أو الاسم أو المبلغ..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pr-12 pl-5 py-4 bg-gray-700 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-4 focus:ring-emerald-500 transition-all"
+                  />
+                </div>
+                <div className="flex items-center gap-3">
+                  <Calendar className="text-gray-400 hidden md:block" />
+                  <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="px-4 py-4 bg-gray-700 border border-gray-600 rounded-xl text-white" />
+                  <span className="text-gray-400 hidden md:block">إلى</span>
+                  <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="px-4 py-4 bg-gray-700 border border-gray-600 rounded-xl text-white" />
+                </div>
+              </div>
 
-            <div style={styles.dateFilters}>
-              <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} style={styles.dateInput} />
-              <span style={{ margin: '0 8px', color: '#aaa' }}>إلى</span>
-              <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} style={styles.dateInput} />
+              {/* فلاتر الأنواع */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+                {typeFilters.map(({ state, set, label, color }) => (
+                  <label
+                    key={label}
+                    className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 cursor-pointer transition-all ${
+                      state
+                        ? `border-${color} bg-${color}/10 text-${color}`
+                        : 'border-gray-600 bg-gray-700 text-gray-400'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={state}
+                      onChange={e => set(e.target.checked)}
+                      className="hidden"
+                    />
+                    <span className="font-medium text-sm">{label}</span>
+                  </label>
+                ))}
+              </div>
             </div>
           </div>
 
-          {/* تشيك بوكسات الأنواع */}
-          <div style={styles.typeFilters}>
-            {[
-              { s: showInstantSpeed, set: setShowInstantSpeed, label: 'فوري سرعة', c: '#4ADE80' },
-              { s: showInstantSeatbelt, set: setShowInstantSeatbelt, label: 'فوري حزام', c: '#FBBF24' },
-              { s: showInstantPhone, set: setShowInstantPhone, label: 'فوري تليفون', c: '#60A5FA' },
-              { s: showInstantOther, set: setShowInstantOther, label: 'فوري أخرى', c: '#A78BFA' },
-              { s: showDoubleSeatbelt, set: setShowDoubleSeatbelt, label: 'حزام مضاعف', c: '#F87171' },
-              { s: showDoubleSpeed, set: setShowDoubleSpeed, label: 'سرعة مضاعف', c: '#F87171' },
-              { s: showDoublePhone, set: setShowDoublePhone, label: 'تليفون مضاعف', c: '#F87171' },
-              { s: showDoubleOther, set: setShowDoubleOther, label: 'أخرى مضاعف', c: '#F87171' },
-            ].map(({ s, set, label, c }) => (
-              <label key={label} style={{ ...styles.checkboxLabel, borderColor: s ? c : '#555' }}>
-                <input type="checkbox" checked={s} onChange={e => set(e.target.checked)} style={{ display: 'none' }} />
-                <span style={{ ...styles.checkboxText, color: s ? c : '#888' }}>{label}</span>
-              </label>
-            ))}
-          </div>
-        </header>
+          {error && (
+            <div className="mx-6 mt-4 p-4 bg-red-900/60 border border-red-700 rounded-xl flex items-center gap-3">
+              
+			<AlertCircle className="w-6 h-6 text-red-400" />
+		  <p className="text-red-300 font-bold">{error}</p>
+            </div>
+          )}
 
-        {error && <p style={styles.error}>{error}</p>}
-
-        {isLoading ? (
-          <div style={styles.loading}>جاري التحميل...</div>
-        ) : filteredViolations.length === 0 ? (
-          <p style={styles.noData}>لا توجد مخالفات مطابقة للبحث</p>
-        ) : (
-          <>
-            {/* Cards للموبايل + جدول للديسكتوب */}
-            <div className="violations-responsive">
-              {/* Mobile Cards */}
-              <div className="mobile-view">
+          {isLoading ? (
+            <div className="text-center py-20 text-gray-400 text-xl">جاري تحميل المخالفات...</div>
+          ) : filteredViolations.length === 0 ? (
+            <div className="text-center py-20 text-gray-400 text-xl">لا توجد مخالفات مطابقة للبحث</div>
+          ) : (
+            <>
+              {/* عرض الموبايل */}
+              <div className="md:hidden space-y-4 p-6">
                 {filteredViolations.map(v => {
                   const employeeAmount = Math.round(v.amount * (100 - (v.companyPercentage || 0)) / 100);
                   return (
-                    <div key={v._id} style={styles.mobileCard}>
-                      <div style={styles.mobileCardHeader}>
-                        <strong>{v.code} - {v.name}</strong>
-                        <span style={styles.mobileJob}>{v.job}</span>
+                    <div key={v._id} className="bg-gray-700 rounded-xl p-5 border border-gray-600">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <h3 className="font-bold text-lg text-white">{v.code} - {v.name}</h3>
+                          <p className="text-gray-400 text-sm">{v.job}</p>
+                        </div>
+                        <span className="text-xs bg-emerald-600/20 text-emerald-400 px-3 py-1 rounded-full">
+                          {v.type}
+                        </span>
                       </div>
-                      <div style={styles.mobileCardBody}>
-                        <p><strong>النوع:</strong> <span style={{ color: '#60A5FA' }}>{v.type}</span></p>
+                      <div className="space-y-2 text-sm">
                         <p><strong>المبلغ:</strong> {v.amount.toLocaleString('ar-EG')} ج.م</p>
                         <p><strong>نسبة الشركة:</strong> {v.companyPercentage}%</p>
-                        <p style={{ color: '#4ADE80', fontWeight: 'bold' }}>
-                          <strong>يخصم:</strong> {employeeAmount.toLocaleString('ar-EG')} ج.م
+                        <p className="text-emerald-400 font-bold">
+                          <strong>يخصم من الموظف:</strong> {employeeAmount.toLocaleString('ar-EG')} ج.م
                         </p>
                         <p><strong>التاريخ:</strong> {new Date(v.createdAt).toLocaleDateString('ar-EG')}</p>
-                        {v.image && (
-                          <img
-                            src={`${import.meta.env.VITE_API_URL.replace('/api', '')}/${v.image}`}
-                            alt="مخالفة"
-                            style={styles.mobileImage}
-                            onClick={() => openImage(`${import.meta.env.VITE_API_URL.replace('/api', '')}/${v.image}`)}
-                          />
-                        )}
-                        {role === 'admin' && (
-                          <div style={styles.mobileActions}>
-                            <button onClick={() => openEditModal(v)} style={styles.mobileEditBtn}>تعديل النسبة</button>
-                            <button onClick={() => handleDelete(v._id)} style={styles.mobileDeleteBtn}>حذف</button>
-                          </div>
-                        )}
                       </div>
+                      {v.image && (
+                        <img
+                          src={`${import.meta.env.VITE_API_URL.replace('/api', '')}/${v.image}`}
+                          alt="مخالفة"
+                          className="w-full mt-4 rounded-lg cursor-pointer"
+                          onClick={() => openImage(`${import.meta.env.VITE_API_URL.replace('/api', '')}/${v.image}`)}
+                        />
+                      )}
+                      {role === 'admin' && (
+                        <div className="flex gap-3 mt-4">
+                          <button onClick={() => openEditModal(v)} className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 rounded-lg font-medium transition">
+                            تعديل النسبة
+                          </button>
+                          <button onClick={() => handleDelete(v._id)} className="flex-1 py-3 bg-red-600 hover:bg-red-500 rounded-lg font-medium transition">
+                            حذف
+                          </button>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
               </div>
 
-              {/* Desktop Table */}
-              <table className="desktop-table" style={styles.desktopTable}>
-                <thead>
-                  <tr>
-                    <th>الكود</th>
-                    <th>الاسم</th>
-                    <th>الوظيفة</th>
-                    <th>النوع</th>
-                    <th>المبلغ</th>
-                    <th>نسبة الشركة</th>
-                    <th>يخصم</th>
-                    <th>التاريخ</th>
-                    <th>الصورة</th>
-                    {role === 'admin' && <th>إجراءات</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredViolations.map(v => {
-                    const employeeAmount = Math.round(v.amount * (100 - (v.companyPercentage || 0)) / 100);
-                    return (
-                      <tr key={v._id}>
-                        <td>{v.code}</td>
-                        <td>{v.name}</td>
-                        <td>{v.job}</td>
-                        <td>{v.type}</td>
-                        <td>{v.amount} ج.م</td>
-                        <td>{v.companyPercentage > 0 ? `${v.companyPercentage}%` : <span style={{color:'#F23F43'}}>0%</span>}</td>
-                        <td style={{color:'#4ADE80',fontWeight:'bold'}}>{employeeAmount.toLocaleString('ar-EG')} ج.م</td>
-                        <td>{new Date(v.createdAt).toLocaleDateString('ar-EG')}</td>
-                        <td>
-                          {v.image ? (
-                            <img src={`${import.meta.env.VITE_API_URL.replace('/api', '')}/${v.image}`} alt="صورة" style={styles.tableImage} onClick={() => openImage(`${import.meta.env.VITE_API_URL.replace('/api', '')}/${v.image}`)} />
-                          ) : 'لا توجد'}
-                        </td>
-                        {role === 'admin' && (
-                          <td>
-                            <button onClick={() => openEditModal(v)} style={styles.editBtn}>تعديل</button>
-                            <button onClick={() => handleDelete(v._id)} style={styles.deleteBtn}>حذف</button>
+              {/* الجدول للديسكتوب */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-gray-700 text-gray-300 text-sm">
+                      <th className="px-6 py-4 text-right">الكود</th>
+                      <th className="px-6 py-4 text-right">الاسم</th>
+                      <th className="px-6 py-4 text-right">الوظيفة</th>
+                      <th className="px-6 py-4 text-right">النوع</th>
+                      <th className="px-6 py-4 text-right">المبلغ</th>
+                      <th className="px-6 py-4 text-right">نسبة الشركة</th>
+                      <th className="px-6 py-4 text-right">يخصم</th>
+                      <th className="px-6 py-4 text-right">التاريخ</th>
+                      <th className="px-6 py-4 text-right">الصورة</th>
+                      {role === 'admin' && <th className="px-6 py-4 text-right">إجراءات</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredViolations.map(v => {
+                      const employeeAmount = Math.round(v.amount * (100 - (v.companyPercentage || 0)) / 100);
+                      return (
+                        <tr key={v._id} className="bg-gray-700/50 border-b border-gray-600 hover:bg-gray-700 transition">
+                          <td className="px-6 py-5 text-white font-medium">{v.code}</td>
+                          <td className="px-6 py-5 text-white">{v.name}</td>
+                          <td className="px-6 py-5 text-gray-300">{v.job}</td>
+                          <td className="px-6 py-5">
+                            <span className="px-3 py-1 rounded-full text-xs font-medium bg-emerald-600/20 text-emerald-400">
+                              {v.type}
+                            </span>
                           </td>
-                        )}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            {/* الإحصائيات */}
-            <div style={styles.stats}>
-              <h3>الإحصائيات</h3>
-              <div style={styles.statsGrid}>
-                <div style={styles.statBox}><span>إجمالي المخالفات</span><strong style={{color:'#00D4FF'}}>{stats.totalOriginal.toLocaleString('ar-EG')} ج.م</strong></div>
-                <div style={styles.statBox}><span>تتحمله الشركة</span><strong style={{color:'#4ADE80'}}>{stats.totalCompany.toLocaleString('ar-EG')} ج.م</strong></div>
-                <div style={styles.statBox}><span>يخصم من الموظفين</span><strong style={{color:'#F23F43'}}>{stats.totalEmployee.toLocaleString('ar-EG')} ج.م</strong></div>
+                          <td className="px-6 py-5 text-white">{v.amount.toLocaleString('ar-EG')} ج.م</td>
+                          <td className="px-6 py-5 text-white">{v.companyPercentage}%</td>
+                          <td className="px-6 py-5 text-emerald-400 font-bold">{employeeAmount.toLocaleString('ar-EG')} ج.م</td>
+                          <td className="px-6 py-5 text-gray-300">{new Date(v.createdAt).toLocaleDateString('ar-EG')}</td>
+                          <td className="px-6 py-5">
+                            {v.image ? (
+                              <img
+                                src={`${import.meta.env.VITE_API_URL.replace('/api', '')}/${v.image}`}
+                                alt="صورة"
+                                className="w-20 h-16 object-cover rounded-lg cursor-pointer hover:scale-105 transition"
+                                onClick={() => openImage(`${import.meta.env.VITE_API_URL.replace('/api', '')}/${v.image}`)}
+                              />
+                            ) : <span className="text-gray-500">لا توجد</span>}
+                          </td>
+                          {role === 'admin' && (
+                            <td className="px-6 py-5">
+                              <div className="flex gap-2 justify-center">
+                                <button onClick={() => openEditModal(v)} className="p-2 bg-blue-600 hover:bg-blue-500 rounded-lg transition">
+                                  <Edit2 className="w-5 h-5" />
+                                </button>
+                                <button onClick={() => handleDelete(v._id)} className="p-2 bg-red-600 hover:bg-red-500 rounded-lg transition">
+                                  <Trash2 className="w-5 h-5" />
+                                </button>
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-            </div>
-          </>
-        )}
 
-        {/* مودال تعديل النسبة */}
-        {editingViolation && (
-          <div style={styles.modal} onClick={() => setEditingViolation(null)}>
-            <div style={styles.modalContent} onClick={e => e.stopPropagation()}>
-              <h3>تعديل نسبة الشركة</h3>
-              <p>{editingViolation.code} - {editingViolation.name}</p>
-              <input type="number" min="0" max="100" value={companyPercentage} onChange={e => setCompanyPercentage(e.target.value)} style={styles.modalInput} />
-              <div style={styles.modalBtns}>
-                <button onClick={saveCompanyPercentage} style={styles.saveBtn}>حفظ</button>
-                <button onClick={() => setEditingViolation(null)} style={styles.cancelBtn}>إلغاء</button>
+              {/* الإحصائيات */}
+              <div className="p-6 bg-gray-700/50 border-t border-gray-600">
+                <h3 className="text-xl font-bold text-white mb-4">الإحصائيات</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="bg-gray-800 p-6 rounded-xl text-center border border-gray-700">
+                    <p className="text-gray-400 mb-2">إجمالي المخالفات</p>
+                    <p className="text-3xl font-bold text-cyan-400">{stats.totalOriginal.toLocaleString('ar-EG')} ج.م</p>
+                  </div>
+                  <div className="bg-gray-800 p-6 rounded-xl text-center border border-gray-700">
+                    <p className="text-gray-400 mb-2">تتحمله الشركة</p>
+                    <p className="text-3xl font-bold text-emerald-400">{stats.totalCompany.toLocaleString('ar-EG')} ج.م</p>
+                  </div>
+                  <div className="bg-gray-800 p-6 rounded-xl text-center border border-gray-700">
+                    <p className="text-gray-400 mb-2">يخصم من الموظفين</p>
+                    <p className="text-3xl font-bold text-red-400">{stats.totalEmployee.toLocaleString('ar-EG')} ج.م</p>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-        )}
-
-        {/* مودال الصورة */}
-        {selectedImage && (
-          <div style={styles.modal} onClick={closeModal}>
-            <div style={styles.imageModal} onClick={e => e.stopPropagation()}>
-              <button style={styles.closeImage} onClick={closeModal}>✕</button>
-              <img src={selectedImage} alt="مخالفة" style={{ maxWidth: '100%', maxHeight: '90vh', borderRadius: '12px' }} />
-            </div>
-          </div>
-        )}
+            </>
+          )}
+        </div>
       </div>
 
-      <style jsx>{`
-        @media (max-width: 768px) {
-          .desktop-table { display: none; }
-        }
-        @media (min-width: 769px) {
-          .mobile-view { display: none; }
-        }
-      `}</style>
+      {/* مودال تعديل النسبة */}
+      {editingViolation && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setEditingViolation(null)}>
+          <div className="bg-gray-800 rounded-2xl p-8 max-w-md w-full border border-gray-700" onClick={e => e.stopPropagation()}>
+            <h3 className="text-2xl font-bold text-white mb-4">تعديل نسبة الشركة</h3>
+            <p className="text-gray-300 mb-6">{editingViolation.code} - {editingViolation.name}</p>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              value={companyPercentage}
+              onChange={e => setCompanyPercentage(e.target.value)}
+              className="w-full px-5 py-4 bg-gray-700 border border-gray-600 rounded-xl text-white text-center text-2xl focus:outline-none focus:ring-4 focus:ring-emerald-500"
+              placeholder="0"
+            />
+            <div className="flex gap-4 mt-8">
+              <button onClick={saveCompanyPercentage} className="flex-1 py-4 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-bold text-white transition">
+                حفظ التغييرات
+              </button>
+              <button onClick={() => setEditingViolation(null)} className="flex-1 py-4 bg-gray-700 hover:bg-gray-600 rounded-xl font-bold text-white transition">
+                إلغاء
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* مودال الصورة */}
+      {selectedImage && (
+        <div className="fixed inset-0 bg-black/95 flex items-center justify-center z-50 p-8" onClick={closeModal}>
+          <button onClick={closeModal} className="absolute top-6 right-6 text-white text-4xl hover:text-gray-400 transition">
+            ×
+          </button>
+          <img src={selectedImage} alt="مخالفة" className="max-w-full max-h-full rounded-xl shadow-2xl" onClick={e => e.stopPropagation()} />
+        </div>
+      )}
     </div>
   );
-};
-
-const styles = {
-  container: { minHeight: '100vh', backgroundColor: '#18191A', color: '#E4E6EB', padding: '16px', fontFamily: 'Tajawal, sans-serif', direction: 'rtl' },
-  innerContainer: { maxWidth: '1400px', margin: '0 auto', backgroundColor: '#242526', borderRadius: '16px', overflow: 'hidden' },
-  header: { padding: '20px', backgroundColor: '#242526', borderBottom: '1px solid #333' },
-  title: { margin: '0 0 16px', fontSize: '28px', fontWeight: '800', color: '#fff' },
-  searchBar: { display: 'flex', flexWrap: 'wrap', gap: '12px', marginBottom: '16px', alignItems: 'center' },
-  searchInputWrapper: { position: 'relative', flex: '1', minWidth: '250px' },
-  searchInput: { width: '100%', padding: '14px 45px 14px 16px', borderRadius: '12px', border: '1px solid #444', backgroundColor: '#333', color: '#fff', fontSize: '16px' },
-  searchIcon: { position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', color: '#999' },
-  dateFilters: { display: 'flex', alignItems: 'center', gap: '8px' },
-  dateInput: { padding: '12px', borderRadius: '10px', border: '1px solid #444', backgroundColor: '#333', color: '#fff' },
-  typeFilters: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px', marginTop: '10px' },
-  checkboxLabel: { display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '10px', borderRadius: '10px', border: '2px solid', cursor: 'pointer', transition: 'all 0.2s' },
-  checkboxText: { fontWeight: '600', fontSize: '14px' },
-  loading: { textAlign: 'center', padding: '60px', fontSize: '18px', color: '#999' },
-  noData: { textAlign: 'center', padding: '80px', fontSize: '20px', color: '#999' },
-  mobileCard: { backgroundColor: '#333', borderRadius: '16px', margin: '16px', padding: '20px', border: '1px solid #444' },
-  mobileCardHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', fontSize: '18px' },
-  mobileJob: { fontSize: '14px', color: '#aaa' },
-  mobileCardBody: { lineHeight: '1.8' },
-  mobileImage: { width: '100%', borderRadius: '12px', marginTop: '12px', cursor: 'pointer' },
-  mobileActions: { display: 'flex', gap: '10px', marginTop: '16px' },
-  mobileEditBtn: { backgroundColor: '#0866FF', color: 'white', padding: '10px 16px', borderRadius: '10px', fontSize: '14px' },
-  mobileDeleteBtn: { backgroundColor: '#F23F43', color: 'white', padding: '10px 16px', borderRadius: '10px', fontSize: '14px' },
-  desktopTable: { width: '100%', borderCollapse: 'collapse', marginTop: '20px' },
-  tableImage: { width: '70px', height: '50px', objectFit: 'cover', borderRadius: '8px', cursor: 'pointer' },
-  editBtn: { backgroundColor: '#0866FF', color: 'white', padding: '6px 12px', borderRadius: '6px', marginLeft: '6px' },
-  deleteBtn: { backgroundColor: '#F23F43', color: 'white', padding: '6px 12px', borderRadius: '6px' },
-  stats: { margin: '32px 20px', backgroundColor: '#1e1f20', padding: '20px', borderRadius: '16px' },
-  statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginTop: '16px' },
-  statBox: { backgroundColor: '#333', padding: '20px', borderRadius: '12px', textAlign: 'center' },
-  modal: { position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.95)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 10000 },
-  modalContent: { backgroundColor: '#242526', padding: '32px', borderRadius: '20px', width: '90%', maxWidth: '400px', textAlign: 'center' },
-  modalInput: { width: '100%', padding: '16px', margin: '16px 0', backgroundColor: '#333', border: '1px solid #444', borderRadius: '12px', color: '#fff', fontSize: '18px' },
-  modalBtns: { display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '20px' },
-  saveBtn: { backgroundColor: '#0866FF', color: 'white', padding: '12px 32px', borderRadius: '12px', fontWeight: '700' },
-  cancelBtn: { backgroundColor: '#444', color: '#fff', padding: '12px 32px', borderRadius: '12px' },
-  imageModal: { position: 'relative', maxWidth: '95%', maxHeight: '95%' },
-  closeImage: { position: 'absolute', top: '-50px', right: '0', background: 'none', border: 'none', color: '#fff', fontSize: '40px', cursor: 'pointer' },
-  error: { backgroundColor: '#4F2122', color: '#F23F43', padding: '16px', borderRadius: '12px', textAlign: 'center', margin: '20px' },
 };
 
 export default ViolationsList;

@@ -3,7 +3,7 @@ import axios from 'axios';
 import { Link, useNavigate } from 'react-router-dom';
 
 const Register = () => {
-  const [formData, setFormData] = useState({ username: '', password: '' }); // لا يوجد role في الفورم
+  const [formData, setFormData] = useState({ username: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -16,9 +16,7 @@ const Register = () => {
     e.preventDefault();
     setError('');
     setLoading(true);
-
     try {
-      // ترسل بيانات بدون role (يتم افتراض role=user في الباك إند)
       await axios.post(`${import.meta.env.VITE_API_URL}/auth/register`, formData);
       navigate('/login');
     } catch (err) {
@@ -29,111 +27,79 @@ const Register = () => {
   };
 
   return (
-    <div style={styles.container}>
-      <h2 style={styles.title}>تسجيل حساب جديد</h2>
-      <form onSubmit={handleSubmit} style={styles.form} noValidate>
-        <input
-          type="text"
-          name="username"
-          placeholder="اسم المستخدم"
-          value={formData.username}
-          onChange={handleChange}
-          required
-          style={styles.input}
-          autoComplete="username"
-          spellCheck="false"
-        />
-        <input
-          type="password"
-          name="password"
-          placeholder="كلمة المرور"
-          value={formData.password}
-          onChange={handleChange}
-          required
-          style={styles.input}
-          autoComplete="new-password"
-        />
-        <button type="submit" disabled={loading} style={loading ? {...styles.button, ...styles.buttonDisabled} : styles.button}>
-          {loading ? 'جاري التسجيل...' : 'تسجيل'}
-        </button>
-      </form>
-      <p style={styles.paragraph}>
-        لديك حساب؟ <Link to="/login" style={styles.link}>سجل دخول</Link>
-      </p>
-      {error && <p style={styles.error}>{error}</p>}
+    <div className="min-h-screen bg-gray-900 flex items-center justify-center px-4 py-12">
+      <div className="w-full max-w-md">
+        {/* Card */}
+        <div className="bg-gray-800 rounded-2xl shadow-2xl p-8 border border-gray-700">
+          <h2 className="text-3xl font-bold text-white text-center mb-8 tracking-tight">
+            تسجيل حساب جديد
+          </h2>
+
+          <form onSubmit={handleSubmit} className="space-y-6" noValidate>
+            <div>
+              <input
+                type="text"
+                name="username"
+                placeholder="اسم المستخدم"
+                value={formData.username}
+                onChange={handleChange}
+                required
+                autoComplete="username"
+                spellCheck="false"
+                className="w-full px-5 py-4 bg-gray-700 border border-gray-600 rounded-xl text-white placeholder-gray-400 text-lg font-medium focus:outline-none focus:ring-4 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200"
+              />
+            </div>
+
+            <div>
+              <input
+                type="password"
+                name="password"
+                placeholder="كلمة المرور"
+                value={formData.password}
+                onChange={handleChange}
+                required
+                autoComplete="new-password"
+                className="w-full px-5 py-4 bg-gray-700 border border-gray-600 rounded-xl text-white placeholder-gray-400 text-lg font-medium focus:outline-none focus:ring-4 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className={`w-full py-4 rounded-xl text-white font-bold text-lg transition-all duration-300 transform hover:scale-[1.02] focus:outline-none focus:ring-4 focus:ring-emerald-500/50
+                ${loading
+                  ? 'bg-emerald-700 cursor-not-allowed opacity-80'
+                  : 'bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 shadow-lg hover:shadow-emerald-500/25'
+                }`}
+            >
+              {loading ? 'جاري التسجيل...' : 'تسجيل'}
+            </button>
+          </form>
+
+          <p className="mt-8 text-center text-gray-400">
+            لديك حساب بالفعل؟{' '}
+            <Link
+              to="/login"
+              className="text-emerald-400 font-bold hover:text-emerald-300 transition-colors duration-200"
+            >
+              تسجيل الدخول
+            </Link>
+          </p>
+
+          {error && (
+            <div className="mt-6 p-4 bg-red-900/60 border border-red-700 rounded-xl">
+              <p className="text-red-300 font-bold text-center">{error}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <p className="text-center text-gray-500 text-sm mt-8">
+          نظام إدارة المخالفات المرورية © 2025
+        </p>
+      </div>
     </div>
   );
 };
 
-const styles = {
-  container: {
-    maxWidth: 420,
-    margin: '60px auto',
-    padding: 30,
-    borderRadius: 12,
-    backgroundColor: '#ffffff',
-    boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
-    fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-    textAlign: 'center',
-    transition: 'all 0.3s ease',
-  },
-  title: {
-    marginBottom: 25,
-    color: '#222',
-    fontWeight: '700',
-    fontSize: 28,
-    letterSpacing: 1,
-  },
-  form: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 20,
-  },
-  input: {
-    padding: '14px 16px',
-    fontSize: 17,
-    borderRadius: 8,
-    border: '1.8px solid #ccc',
-    outline: 'none',
-    transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
-    fontWeight: 500,
-  },
-  // تأثير عند التركيز على الحقل
-  inputFocus: {
-    borderColor: '#28a745',
-    boxShadow: '0 0 8px rgba(40, 167, 69, 0.5)',
-  },
-  button: {
-    padding: '14px',
-    backgroundColor: '#28a745',
-    border: 'none',
-    borderRadius: 8,
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
-    cursor: 'pointer',
-    transition: 'background-color 0.3s ease, transform 0.15s ease',
-  },
-  buttonDisabled: {
-    backgroundColor: '#8bc34a',
-    cursor: 'not-allowed',
-  },
-  paragraph: {
-    marginTop: 22,
-    fontSize: 15,
-    color: '#555',
-  },
-  link: {
-    color: '#28a745',
-    textDecoration: 'none',
-    fontWeight: '600',
-  },
-  error: {
-    marginTop: 18,
-    color: '#e74c3c',
-    fontWeight: '700',
-  },
-};
-
 export default Register;
-

@@ -4,16 +4,15 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import ViolationsList from './pages/ViolationsList';
 import AddViolation from './pages/AddViolation';
-import ActivityLogs from './pages/ActivityLogs'; // تمت الإضافة
+import ActivityLogs from './pages/ActivityLogs';
 import Navbar from './components/Navbar';
+import './App.css';
 
-// مكون لحماية المسارات اللي تحتاج تسجيل دخول
 const PrivateRoute = ({ children }) => {
   const token = localStorage.getItem('token');
   return token ? children : <Navigate to="/login" />;
 };
 
-// مكون لحماية مسارات الادمن
 const AdminRoute = ({ children }) => {
   const token = localStorage.getItem('token');
   const role = localStorage.getItem('role');
@@ -23,44 +22,44 @@ const AdminRoute = ({ children }) => {
 
 const App = () => {
   return (
-    <>
+    <div className="app-container min-h-screen">
       <Navbar />
-      <Routes>
-        {/* مسارات عامة */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
+      <main className="container mx-auto px-4 py-8">
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
 
-        {/* مسارات محمية */}
-        <Route
-          path="/"
-          element={
-            <PrivateRoute>
-              <ViolationsList />
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/add"
-          element={
-            <AdminRoute>
-              <AddViolation />
-            </AdminRoute>
-          }
-        />
-        {/* مسار جديد: سجل الأنشطة (للأدمن فقط) */}
-        <Route
-          path="/logs"
-          element={
-            <AdminRoute>
-              <ActivityLogs />
-            </AdminRoute>
-          }
-        />
+          <Route
+            path="/"
+            element={
+              <PrivateRoute>
+                <ViolationsList />
+              </PrivateRoute>
+            }
+          />
 
-        {/* إعادة التوجيه لأي رابط غير معروف */}
-        <Route path="*" element={<Navigate to="/" />} />
-      </Routes>
-    </>
+          <Route
+            path="/add"
+            element={
+              <AdminRoute>
+                <AddViolation />
+              </AdminRoute>
+            }
+          />
+
+          <Route
+            path="/logs"
+            element={
+              <AdminRoute>
+                <ActivityLogs />
+              </AdminRoute>
+            }
+          />
+
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </main>
+    </div>
   );
 };
 

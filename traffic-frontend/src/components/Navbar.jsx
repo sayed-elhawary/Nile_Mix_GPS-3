@@ -11,11 +11,40 @@ const Navbar = () => {
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('role');
+    localStorage.removeItem('username');
     navigate('/login');
     setMobileMenuOpen(false);
   };
 
+  // لو مفيش توكن = مخفي تماماً
   if (!token) return null;
+
+  // تحديد الروابط حسب الرول
+  const getMenuItems = () => {
+    const baseItems = [
+      { to: '/', label: 'المخالفات' },
+    ];
+
+    if (role === 'admin') {
+      return [
+        ...baseItems,
+        { to: '/add', label: 'إضافة مخالفة' },
+        { to: '/logs', label: 'سجل الأنشطة' },
+      ];
+    }
+
+    if (role === 'hr') {
+      return [
+        ...baseItems,
+        { to: '/add', label: 'إضافة مخالفة' },
+      ];
+    }
+
+    // user عادي
+    return baseItems;
+  };
+
+  const menuItems = getMenuItems();
 
   return (
     <nav className="bg-gray-900/95 backdrop-blur-md border-b border-gray-800 sticky top-0 z-50" dir="rtl">
@@ -28,19 +57,16 @@ const Navbar = () => {
 
           {/* Desktop Menu */}
           <div className="hidden md:flex items-center gap-8">
-            <Link to="/" className="text-gray-300 hover:text-white transition">
-              المخالفات
-            </Link>
-            {role === 'admin' && (
-              <>
-                <Link to="/add" className="text-gray-300 hover:text-white transition">
-                  إضافة مخالفة
-                </Link>
-                <Link to="/logs" className="text-gray-300 hover:text-white transition">
-                  سجل الأنشطة
-                </Link>
-              </>
-            )}
+            {menuItems.map((item) => (
+              <Link
+                key={item.to}
+                to={item.to}
+                className="text-gray-300 hover:text-white transition font-medium"
+              >
+                {item.label}
+              </Link>
+            ))}
+
             <button
               onClick={handleLogout}
               className="px-5 py-2 bg-red-600 hover:bg-red-500 rounded-lg text-white font-medium transition"
@@ -58,7 +84,7 @@ const Navbar = () => {
           </button>
         </div>
 
-        {/* Mobile Menu - أنيميشن ناعم جدًا */}
+        {/* Mobile Menu */}
         <div
           className={`md:hidden overflow-hidden transition-all duration-500 ease-in-out ${
             mobileMenuOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
@@ -66,32 +92,16 @@ const Navbar = () => {
         >
           <div className="pb-6 pt-4 border-t border-gray-800">
             <div className="flex flex-col gap-5 px-2">
-              <Link
-                to="/"
-                onClick={() => setMobileMenuOpen(false)}
-                className="text-gray-200 hover:text-white text-lg font-medium transition transform hover:translate-x-1"
-              >
-                المخالفات
-              </Link>
-
-              {role === 'admin' && (
-                <>
-                  <Link
-                    to="/add"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="text-gray-200 hover:text-white text-lg font-medium transition transform hover:translate-x-1"
-                  >
-                    إضافة مخالفة
-                  </Link>
-                  <Link
-                    to="/logs"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="text-gray-200 hover:text-white text-lg font-medium transition transform hover:translate-x-1"
-                  >
-                    سجل الأنشطة
-                  </Link>
-                </>
-              )}
+              {menuItems.map((item) => (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="text-gray-200 hover:text-white text-lg font-medium transition transform hover:translate-x-1"
+                >
+                  {item.label}
+                </Link>
+              ))}
 
               <button
                 onClick={handleLogout}

@@ -8,9 +8,8 @@ exports.addViolation = async (req, res) => {
     const { code, name, job, type, amount } = req.body;
     let imagePath = '';
     if (req.file) {
-      imagePath = req.file.path.replace(/\\/g, '/'); // تحويل مسار الصورة إلى صيغة URL مناسبة
+      imagePath = req.file.path.replace(/\\/g, '/');
     }
-
     const violation = new Violation({
       code,
       name,
@@ -19,19 +18,18 @@ exports.addViolation = async (req, res) => {
       amount,
       image: imagePath
     });
-
     await violation.save();
-    res.status(201).json({ message: 'تم تسجيل المخالفة' });
+    res.status(201).json({ message: 'تم تسجيل المخالفة', violation });
   } catch (error) {
     console.error('Error in addViolation:', error);
     res.status(500).json({ message: 'حدث خطأ في السيرفر' });
   }
 };
 
-// جلب جميع المخالفات
+// جلب جميع المخالفات ← لازم نصدرها كده بالاسم الصحيح
 exports.getViolations = async (req, res) => {
   try {
-    const violations = await Violation.find();
+    const violations = await Violation.find().sort({ createdAt: -1 });
     res.json(violations);
   } catch (error) {
     console.error('Error in getViolations:', error);
@@ -42,32 +40,21 @@ exports.getViolations = async (req, res) => {
 // حذف مخالفة حسب المعرف (ID)
 exports.deleteViolation = async (req, res) => {
   const violationId = req.params.id;
-
   try {
-    // البحث عن المخالفة أولاً
     const violation = await Violation.findById(violationId);
     if (!violation) {
       return res.status(404).json({ message: 'المخالفة غير موجودة' });
     }
-
-    // حذف صورة المخالفة من مجلد uploads إذا كانت موجودة
     if (violation.image) {
       const imagePath = path.join(__dirname, '..', violation.image);
       fs.unlink(imagePath, (err) => {
-        if (err) {
-          console.warn('فشل حذف صورة المخالفة:', err);
-          // لا نوقف الحذف بسبب فشل حذف الصورة
-        }
+        if (err) console.warn('فشل حذف الصورة:', err);
       });
     }
-
-    // حذف المخالفة من قاعدة البيانات
     await Violation.findByIdAndDelete(violationId);
-
     res.json({ message: 'تم حذف المخالفة بنجاح' });
   } catch (error) {
     console.error('Error in deleteViolation:', error);
     res.status(500).json({ message: 'حدث خطأ أثناء حذف المخالفة' });
   }
 };
-

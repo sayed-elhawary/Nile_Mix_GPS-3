@@ -16,21 +16,35 @@ const Login = () => {
     e.preventDefault();
     setError('');
     setLoading(true);
+
     try {
       const res = await axios.post(`${import.meta.env.VITE_API_URL}/auth/login`, formData);
-      if (res.data.token) {
+
+      if (res.data.token && res.data.role) {
+        const userRole = res.data.role.toLowerCase().trim(); // نضمن إنه صغير ومن غير مسافات
+
+        // حفظ البيانات في localStorage بشكل موحد وآمن
         localStorage.setItem('token', res.data.token);
-        localStorage.setItem('role', res.data.role);
-        if (res.data.role === 'admin') {
-          navigate('/admin/violations');
+        localStorage.setItem('role', userRole);                    // مهم: نضمن صيغة موحدة
+        localStorage.setItem('username', res.data.username || formData.username);
+
+        // توجيه صحيح وآمن للجميع
+        if (userRole === 'admin') {
+          navigate('/', { replace: true });
+        } else if (userRole === 'hr') {
+          navigate('/', { replace: true });   // نفس صفحة المخالفات، لأن HR عايز يضيف
         } else {
-          navigate('/violations');
+          navigate('/', { replace: true });   // الكل يروح على الرئيسية
         }
+
+        // إجباري نعمل reload مرة واحدة بس عشان النافبار يقرأ الـ role صح
+        window.location.reload();
       } else {
-        setError('لم يتم استقبال التوكن من السيرفر');
+        setError('بيانات الدخول غير كاملة من السيرفر');
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'حدث خطأ في تسجيل الدخول، يرجى المحاولة لاحقاً');
+      const msg = err.response?.data?.message || err.response?.data?.errors?.[0]?.msg || 'فشل في الاتصال بالسيرفر';
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -39,7 +53,6 @@ const Login = () => {
   return (
     <div className="min-h-screen bg-gray-900 flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
-        {/* Card */}
         <div className="bg-gray-800 rounded-2xl shadow-2xl p-8 border border-gray-700">
           <h2 className="text-3xl font-bold text-white text-center mb-8 tracking-tight">
             تسجيل الدخول
@@ -77,8 +90,8 @@ const Login = () => {
               type="submit"
               disabled={loading}
               className={`w-full py-4 rounded-xl text-white font-bold text-lg transition-all duration-300 transform hover:scale-[1.02] focus:outline-none focus:ring-4 focus:ring-emerald-500/50
-                ${loading 
-                  ? 'bg-emerald-700 cursor-not-allowed opacity-80' 
+                ${loading
+                  ? 'bg-emerald-700 cursor-not-allowed opacity-80'
                   : 'bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 shadow-lg hover:shadow-emerald-500/25'
                 }`}
             >
@@ -88,8 +101,8 @@ const Login = () => {
 
           <p className="mt-8 text-center text-gray-400">
             ليس لديك حساب؟{' '}
-            <Link 
-              to="/register" 
+            <Link
+              to="/register"
               className="text-emerald-400 font-bold hover:text-emerald-300 transition-colors duration-200"
             >
               سجل الآن
@@ -103,7 +116,6 @@ const Login = () => {
           )}
         </div>
 
-        {/* Optional: Footer text */}
         <p className="text-center text-gray-500 text-sm mt-8">
           نظام إدارة المخالفات المرورية © 2025
         </p>

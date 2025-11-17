@@ -7,9 +7,9 @@ const { register, login } = require('../controllers/authController');
 router.post(
   '/register',
   [
-    body('username').isString().withMessage('اسم المستخدم مطلوب').notEmpty(),
+    body('username').isString().withMessage('اسم المستخدم مطلوب').notEmpty().trim(),
     body('password').isLength({ min: 6 }).withMessage('كلمة المرور يجب أن تكون 6 أحرف على الأقل'),
-    body('role').optional().isIn(['user', 'admin']).withMessage('الدور غير صالح'),
+    body('role').optional().isIn(['user', 'admin', 'hr']).withMessage('الدور غير صالح'), // ← أضفنا hr
   ],
   (req, res, next) => {
     const errors = validationResult(req);
@@ -21,7 +21,7 @@ router.post(
   register
 );
 
-// مسار تسجيل الدخول مع تحقق من البيانات
+// باقي الكود زي ما هو (login)
 router.post(
   '/login',
   [
@@ -39,4 +39,3 @@ router.post(
 );
 
 module.exports = router;
-
